@@ -1,0 +1,5 @@
+{
+  "name": "CSV Agent Editor",
+  "description": "An intelligent CSV editor that allows you to clean, transform, and analyze data using natural language commands. Collaborate with an AI agent to perform complex data operations, with a full history of changes that is auditable and reproducible.",
+  "requestFramePermissions": []
+}
