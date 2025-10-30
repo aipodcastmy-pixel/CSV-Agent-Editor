@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TableData, ColumnSchema, ColumnType, SortConfig, SortDirection, ConditionalFormatRule, FormattingColor } from '../types';
 import { ArrowUpIcon, ArrowDownIcon } from './Icons';
 
@@ -12,6 +12,8 @@ interface DataGridProps {
 }
 
 const ROWS_PER_PAGE = 100;
+const MIN_COL_WIDTH = 60; // Minimum column width in pixels
+const DEFAULT_COL_WIDTH = 150; // Default column width in pixels
 
 const TypeBadge: React.FC<{ type: ColumnType }> = ({ type }) => {
   const typeInfo = {
@@ -72,6 +74,47 @@ const getConditionalClassName = (cellValue: any, header: string, formats: Condit
 export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema, onSort, sortConfig, conditionalFormats }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const { headers, rows } = data;
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  
+  const resizingColumnRef = useRef<string | null>(null);
+  const startXRef = useRef<number>(0);
+  const startWidthRef = useRef<number>(0);
+
+  useEffect(() => {
+    const initialWidths: Record<string, number> = {};
+    headers.forEach(header => {
+      initialWidths[header] = DEFAULT_COL_WIDTH;
+    });
+    setColumnWidths(initialWidths);
+  }, [headers]);
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!resizingColumnRef.current) return;
+    const header = resizingColumnRef.current;
+    const deltaX = event.clientX - startXRef.current;
+    const newWidth = Math.max(startWidthRef.current + deltaX, MIN_COL_WIDTH);
+    setColumnWidths(prev => ({ ...prev, [header]: newWidth }));
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    resizingColumnRef.current = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, [handleMouseMove]);
+
+  const handleMouseDown = useCallback((header: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    resizingColumnRef.current = header;
+    startXRef.current = event.clientX;
+    startWidthRef.current = columnWidths[header] || DEFAULT_COL_WIDTH;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [columnWidths, handleMouseMove, handleMouseUp]);
+
 
   const totalPages = Math.ceil(rows.length / ROWS_PER_PAGE);
   const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
@@ -104,25 +147,29 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
         )}
       </div>
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm text-left text-gray-300 table-auto">
+        <table className="w-full text-sm text-left text-gray-300 table-fixed">
           <thead className="text-xs text-gray-400 uppercase bg-gray-800 sticky top-0 z-10">
             <tr>
-              <th scope="col" className="px-4 py-3 font-mono font-normal text-right w-20 sticky left-0 bg-gray-800">#</th>
+              <th scope="col" className="px-4 py-3 font-mono font-normal text-right sticky left-0 bg-gray-800" style={{ width: '80px' }}>#</th>
               {headers.map((header) => {
                 const schema = columnSchema[header];
                 return (
-                  <th key={header} scope="col" className="px-4 py-3 relative group">
-                    <button onClick={() => onSort(header)} className="flex items-center gap-2 w-full text-left font-inherit color-inherit hover:text-white transition-colors">
-                      <div className="flex items-center gap-2">
+                  <th key={header} scope="col" className="px-4 py-3 relative group" style={{ width: `${columnWidths[header]}px` }}>
+                    <button onClick={() => onSort(header)} className="flex items-center gap-2 w-full h-full text-left font-inherit color-inherit hover:text-white transition-colors">
+                      <div className="flex items-center gap-2 overflow-hidden">
                         <span className="truncate">{header}</span>
                         {schema && <TypeBadge type={schema.type} />}
                       </div>
                       {sortConfig?.key === header && (
                         sortConfig.direction === SortDirection.Asc 
-                            ? <ArrowUpIcon className="w-4 h-4 text-gray-200 shrink-0" /> 
-                            : <ArrowDownIcon className="w-4 h-4 text-gray-200 shrink-0" />
+                            ? <ArrowUpIcon className="w-4 h-4 text-gray-200 shrink-0 ml-auto" /> 
+                            : <ArrowDownIcon className="w-4 h-4 text-gray-200 shrink-0 ml-auto" />
                       )}
                     </button>
+                    <div
+                        onMouseDown={(e) => handleMouseDown(header, e)}
+                        className="absolute top-0 right-0 h-full w-2 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-500/50 transition-all duration-200"
+                    />
                      {/* Custom Tooltip */}
                     <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-md shadow-lg p-3 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
                       <h4 className="font-bold text-base text-white mb-1">{header}</h4>
@@ -146,7 +193,7 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
                   const cellValue = row[header];
                   const conditionalClass = getConditionalClassName(cellValue, header, conditionalFormats);
                   return (
-                    <td key={header} className={`px-4 py-2 whitespace-nowrap truncate max-w-xs transition-colors ${conditionalClass}`} title={String(cellValue)}>
+                    <td key={header} className={`px-4 py-2 whitespace-nowrap truncate transition-colors ${conditionalClass}`} title={String(cellValue)}>
                       {cellValue === null ? <span className="text-gray-600 italic">null</span> : String(cellValue)}
                     </td>
                   );
