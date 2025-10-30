@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TableData, ColumnSchema, ColumnType, SortConfig, SortDirection } from '../types';
+import { TableData, ColumnSchema, ColumnType, SortConfig, SortDirection, ConditionalFormatRule, FormattingColor } from '../types';
 import { ArrowUpIcon, ArrowDownIcon } from './Icons';
 
 interface DataGridProps {
@@ -8,6 +8,7 @@ interface DataGridProps {
   columnSchema: ColumnSchema;
   onSort: (key: string) => void;
   sortConfig: SortConfig;
+  conditionalFormats: ConditionalFormatRule[];
 }
 
 const ROWS_PER_PAGE = 100;
@@ -32,7 +33,43 @@ const TypeBadge: React.FC<{ type: ColumnType }> = ({ type }) => {
   );
 };
 
-export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema, onSort, sortConfig }) => {
+const isNumeric = (val: any): boolean => !isNaN(parseFloat(val)) && isFinite(val);
+
+const checkCondition = (cellValue: any, rule: ConditionalFormatRule): boolean => {
+    if (cellValue === null || cellValue === undefined) return false;
+
+    const ruleValue = isNumeric(rule.value) ? parseFloat(rule.value as string) : rule.value;
+    const comparableCellValue = isNumeric(cellValue) ? parseFloat(cellValue) : cellValue;
+
+    switch (rule.condition) {
+        case 'equals': return comparableCellValue == ruleValue;
+        case 'not_equals': return comparableCellValue != ruleValue;
+        case 'gt': return comparableCellValue > ruleValue;
+        case 'lt': return comparableCellValue < ruleValue;
+        case 'gte': return comparableCellValue >= ruleValue;
+        case 'lte': return comparableCellValue <= ruleValue;
+        case 'contains': return String(cellValue).toLowerCase().includes(String(rule.value).toLowerCase());
+        case 'not_contains': return !String(cellValue).toLowerCase().includes(String(rule.value).toLowerCase());
+        default: return false;
+    }
+}
+
+const getConditionalClassName = (cellValue: any, header: string, formats: ConditionalFormatRule[]): string => {
+    const colorMap: Record<FormattingColor, string> = {
+        red: 'bg-red-500/20',
+        green: 'bg-green-500/20',
+        blue: 'bg-blue-500/20',
+        yellow: 'bg-yellow-500/20',
+        purple: 'bg-purple-500/20'
+    };
+    
+    const applicableRule = formats.find(rule => rule.column === header && checkCondition(cellValue, rule));
+    
+    return applicableRule ? colorMap[applicableRule.color] : '';
+};
+
+
+export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema, onSort, sortConfig, conditionalFormats }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const { headers, rows } = data;
 
@@ -105,11 +142,15 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
             {visibleRows.map((row, rowIndex) => (
               <tr key={startIndex + rowIndex} className="border-b border-gray-800 hover:bg-gray-800/50 group">
                 <td className="px-4 py-2 font-mono text-right text-gray-500 sticky left-0 bg-gray-950 group-hover:bg-gray-800/50">{startIndex + rowIndex + 1}</td>
-                {headers.map((header) => (
-                  <td key={header} className="px-4 py-2 whitespace-nowrap truncate max-w-xs" title={String(row[header])}>
-                    {row[header] === null ? <span className="text-gray-600 italic">null</span> : String(row[header])}
-                  </td>
-                ))}
+                {headers.map((header) => {
+                  const cellValue = row[header];
+                  const conditionalClass = getConditionalClassName(cellValue, header, conditionalFormats);
+                  return (
+                    <td key={header} className={`px-4 py-2 whitespace-nowrap truncate max-w-xs transition-colors ${conditionalClass}`} title={String(cellValue)}>
+                      {cellValue === null ? <span className="text-gray-600 italic">null</span> : String(cellValue)}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

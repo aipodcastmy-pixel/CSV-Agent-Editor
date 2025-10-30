@@ -22,10 +22,10 @@ const responseSchema = {
             type: Type.OBJECT,
             description: 'Parameters for the operation. Varies by operation type.',
             properties: {
-                // For filter
-                column: { type: Type.STRING, description: "Column to filter on." },
-                condition: { type: Type.STRING, enum: ['equals', 'not_equals', 'gt', 'lt', 'gte', 'lte', 'contains', 'not_contains'], description: "The filter condition." },
-                value: { type: Type.STRING, description: "The value for the filter condition." },
+                // For filter & conditional_format
+                column: { type: Type.STRING, description: "Column to filter or format on." },
+                condition: { type: Type.STRING, enum: ['equals', 'not_equals', 'gt', 'lt', 'gte', 'lte', 'contains', 'not_contains'], description: "The condition." },
+                value: { type: Type.STRING, description: "The value for the condition." },
                 
                 // For sort
                 columns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of columns to sort by." },
@@ -44,6 +44,9 @@ const responseSchema = {
                 // For fill_na
                 fill_column: { type: Type.STRING, description: "Column with missing values to fill." },
                 fill_value: { type: Type.STRING, description: "Value to fill missing data with." },
+
+                // For conditional_format
+                color: { type: Type.STRING, enum: ['red', 'green', 'blue', 'yellow', 'purple'], description: "The color to highlight the cells."},
                 
                 // For error
                 message: {type: Type.STRING, description: "Explanation of why the command could not be understood."},
@@ -61,6 +64,7 @@ export const parseCommand = async (command: string, headers: string[]): Promise<
     const systemInstruction = `You are a helpful and proactive data analysis agent. Your task is to convert natural language commands into a structured JSON format for processing CSV data. 
     The available columns in the CSV are: ${headers.join(', ')}.
     Analyze the user's command and generate a JSON object that matches the provided schema.
+    - You can also apply conditional formatting. For example: "highlight cells in 'price' column green where value is > 50". Supported colors are red, green, blue, yellow, purple.
     - Be precise with column names.
     - If the user's command is concrete and clear, generate the corresponding operation.
     - If the user's command is ambiguous, vague, or incomplete (e.g., "clean the data", "make it look good"), DO NOT just say it's ambiguous. Instead, use the 'error' operation, provide a helpful message explaining what is needed, AND suggest 3-4 concrete, actionable commands the user could try based on the dataset's columns. Use the 'suggestions' field for this.

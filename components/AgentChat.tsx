@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { AgentStatus, Message, PreviewData, Step } from '../types';
-import { SendIcon, BotIcon, UserIcon, CheckIcon, CancelIcon, ChevronDownIcon, CodeIcon } from './Icons';
+import { AgentStatus, Message, PreviewData, Step, ConditionalFormatRule, FormattingColor } from '../types';
+import { SendIcon, BotIcon, UserIcon, CheckIcon, CancelIcon, ChevronDownIcon, CodeIcon, TrashIcon, FormatIcon } from './Icons';
 
 interface AgentChatProps {
   messages: Message[];
@@ -11,6 +10,8 @@ interface AgentChatProps {
   onApply: () => void;
   onCancel: () => void;
   steps: Step[];
+  conditionalFormats: ConditionalFormatRule[];
+  onRemoveFormat: (id: string) => void;
 }
 
 const StatusIndicator: React.FC<{ status: AgentStatus }> = ({ status }) => {
@@ -113,11 +114,46 @@ const StepsLog: React.FC<{ steps: Step[] }> = ({ steps }) => {
             )}
         </div>
     );
+};
+
+const FormattingLog: React.FC<{ formats: ConditionalFormatRule[], onRemove: (id: string) => void }> = ({ formats, onRemove }) => {
+    const colorMap: Record<FormattingColor, string> = {
+        red: 'border-red-500',
+        green: 'border-green-500',
+        blue: 'border-blue-500',
+        yellow: 'border-yellow-500',
+        purple: 'border-purple-500'
+    };
+    return (
+        <div className="p-4 text-sm">
+            <h3 className="text-lg font-bold text-gray-200 mb-4">Conditional Formatting Rules</h3>
+            {formats.length === 0 ? (
+                 <p className="text-gray-500">No formatting rules have been applied yet.</p>
+            ) : (
+                <div className="space-y-3">
+                    {formats.map(format => (
+                        <div key={format.id} className={`p-3 bg-gray-800 rounded-md border-l-4 ${colorMap[format.color]} flex justify-between items-center`}>
+                           <div>
+                             <p className="font-mono text-xs text-gray-300">
+                                IF <span className="font-semibold text-white">{format.column}</span> {format.condition.replace('_', ' ')} <span className="font-semibold text-white">{format.value}</span>
+                             </p>
+                             <p className="text-xs text-gray-400 capitalize">Highlight: {format.color}</p>
+                           </div>
+                           <button onClick={() => onRemove(format.id)} className="p-1.5 rounded-full hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
+                               <TrashIcon className="w-4 h-4" />
+                           </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 }
 
-export const AgentChat: React.FC<AgentChatProps> = ({ messages, status, onSendMessage, previewData, onApply, onCancel, steps }) => {
+
+export const AgentChat: React.FC<AgentChatProps> = ({ messages, status, onSendMessage, previewData, onApply, onCancel, steps, conditionalFormats, onRemoveFormat }) => {
   const [input, setInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'chat' | 'steps'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'steps' | 'formatting'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -146,6 +182,7 @@ export const AgentChat: React.FC<AgentChatProps> = ({ messages, status, onSendMe
         <div className="flex border-b border-gray-800 mb-4">
             <button onClick={() => setActiveTab('chat')} className={`py-2 px-4 text-sm font-medium ${activeTab === 'chat' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400'}`}>Agent</button>
             <button onClick={() => setActiveTab('steps')} className={`py-2 px-4 text-sm font-medium ${activeTab === 'steps' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400'}`}>History</button>
+            <button onClick={() => setActiveTab('formatting')} className={`py-2 px-4 text-sm font-medium ${activeTab === 'formatting' ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400'}`}>Formatting</button>
         </div>
         {activeTab === 'chat' && <StatusIndicator status={status} />}
       </header>
@@ -182,8 +219,10 @@ export const AgentChat: React.FC<AgentChatProps> = ({ messages, status, onSendMe
                 {previewData && <ActionCard preview={previewData} onApply={onApply} onCancel={onCancel} />}
                 <div ref={messagesEndRef} />
             </div>
-        ) : (
+        ) : activeTab === 'steps' ? (
             <StepsLog steps={steps} />
+        ) : (
+            <FormattingLog formats={conditionalFormats} onRemove={onRemoveFormat} />
         )}
       </div>
 

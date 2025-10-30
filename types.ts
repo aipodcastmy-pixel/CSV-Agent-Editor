@@ -36,6 +36,7 @@ export enum Operation {
   RemoveColumn = 'remove_column',
   RenameColumn = 'rename_column',
   FillNA = 'fill_na',
+  ConditionalFormat = 'conditional_format',
   Error = 'error',
 }
 
@@ -71,4 +72,14 @@ export interface PreviewData {
   step: Step;
   diff: PreviewDiff;
   sample: Record<string, any>[];
+}
+
+export type FormattingColor = 'red' | 'green' | 'blue' | 'yellow' | 'purple';
+
+export interface ConditionalFormatRule {
+  id: string;
+  column: string;
+  condition: 'gt' | 'lt' | 'gte' | 'lte' | 'equals' | 'not_equals' | 'contains' | 'not_contains';
+  value: any;
+  color: FormattingColor;
 }

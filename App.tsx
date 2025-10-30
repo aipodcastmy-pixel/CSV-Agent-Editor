@@ -6,7 +6,7 @@ import { UploadIcon, HistoryIcon, DownloadIcon } from './components/Icons';
 import { parseCommand, generateColumnDescriptions } from './services/geminiService';
 import { applyStep, previewStep } from './services/dataProcessor';
 import { inferColumnTypes } from './services/typeDetector';
-import { AgentStatus, TableData, Step, Message, PreviewData, Operation, ColumnSchema, SortConfig, SortDirection } from './types';
+import { AgentStatus, TableData, Step, Message, PreviewData, Operation, ColumnSchema, SortConfig, SortDirection, ConditionalFormatRule } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function App() {
@@ -19,6 +19,7 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>(AgentStatus.Idle);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [conditionalFormats, setConditionalFormats] = useState<ConditionalFormatRule[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const clearState = () => {
@@ -31,6 +32,7 @@ export default function App() {
     setMessages([]);
     setAgentStatus(AgentStatus.Idle);
     setPreviewData(null);
+    setConditionalFormats([]);
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -120,6 +122,17 @@ export default function App() {
         setAgentStatus(AgentStatus.Idle);
         return;
       }
+
+      if (step.op === Operation.ConditionalFormat) {
+          const newRule: ConditionalFormatRule = {
+              id: uuidv4(),
+              ...step.params,
+          };
+          setConditionalFormats(prev => [...prev, newRule]);
+          setMessages(prev => [...prev, {id: uuidv4(), sender: 'agent', content: `Applied formatting rule: ${step.explanation}`}]);
+          setAgentStatus(AgentStatus.Idle);
+          return;
+      }
       
       setAgentStatus(AgentStatus.Previewing);
       const preview = previewStep(tableData, step);
@@ -191,6 +204,10 @@ export default function App() {
     } else {
         setSortConfig({ key, direction: SortDirection.Asc });
     }
+  };
+
+  const handleRemoveFormat = (id: string) => {
+    setConditionalFormats(prev => prev.filter(f => f.id !== id));
   };
 
   useEffect(() => {
@@ -284,6 +301,7 @@ export default function App() {
                 columnSchema={columnSchema}
                 onSort={handleSort}
                 sortConfig={sortConfig}
+                conditionalFormats={conditionalFormats}
             />
           ) : (
              <div className="flex flex-col items-center justify-center h-full text-gray-500 border-2 border-dashed border-gray-700 rounded-lg">
@@ -304,6 +322,8 @@ export default function App() {
           onApply={applyChanges}
           onCancel={cancelChanges}
           steps={steps}
+          conditionalFormats={conditionalFormats}
+          onRemoveFormat={handleRemoveFormat}
         />
       </aside>
     </div>
