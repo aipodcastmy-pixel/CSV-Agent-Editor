@@ -75,6 +75,7 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
   const [currentPage, setCurrentPage] = useState(1);
   const { headers, rows } = data;
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   
   const resizingColumnRef = useRef<string | null>(null);
   const startXRef = useRef<number>(0);
@@ -98,6 +99,7 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
 
   const handleMouseUp = useCallback(() => {
     resizingColumnRef.current = null;
+    setResizingColumn(null);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = '';
@@ -106,6 +108,7 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
 
   const handleMouseDown = useCallback((header: string, event: React.MouseEvent) => {
     event.preventDefault();
+    setResizingColumn(header);
     resizingColumnRef.current = header;
     startXRef.current = event.clientX;
     startWidthRef.current = columnWidths[header] || DEFAULT_COL_WIDTH;
@@ -148,9 +151,9 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
       </div>
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm text-left text-gray-300 table-fixed">
-          <thead className="text-xs text-gray-400 uppercase bg-gray-800 sticky top-0 z-10">
+          <thead className="text-xs text-gray-400 uppercase bg-gray-800 sticky top-0 z-30">
             <tr>
-              <th scope="col" className="px-4 py-3 font-mono font-normal text-right sticky left-0 bg-gray-800" style={{ width: '80px' }}>#</th>
+              <th scope="col" className="px-4 py-3 font-mono font-normal text-right sticky left-0 bg-gray-800 z-40" style={{ width: '80px' }}>#</th>
               {headers.map((header) => {
                 const schema = columnSchema[header];
                 return (
@@ -168,10 +171,18 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
                     </button>
                     <div
                         onMouseDown={(e) => handleMouseDown(header, e)}
-                        className="absolute top-0 right-0 h-full w-2 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-500/50 transition-all duration-200"
-                    />
+                        className="absolute top-0 right-0 h-full w-4 cursor-col-resize z-20"
+                    >
+                         <div 
+                            className={`absolute top-1/2 -translate-y-1/2 right-2 h-1/2 w-1 rounded-full transition-all duration-200 ${
+                                resizingColumn === header 
+                                ? 'bg-indigo-500 opacity-100' 
+                                : 'bg-gray-600 opacity-0 group-hover:opacity-100'
+                            }`}
+                        />
+                    </div>
                      {/* Custom Tooltip */}
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-md shadow-lg p-3 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-md shadow-lg p-3 z-30 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
                       <h4 className="font-bold text-base text-white mb-1">{header}</h4>
                       <p className="text-xs text-gray-400 mb-2 capitalize">{schema?.type || 'string'} Data</p>
                       <div className="border-t border-gray-700 my-2"></div>
@@ -188,7 +199,7 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, fileName, columnSchema
           <tbody>
             {visibleRows.map((row, rowIndex) => (
               <tr key={startIndex + rowIndex} className="border-b border-gray-800 hover:bg-gray-800/50 group">
-                <td className="px-4 py-2 font-mono text-right text-gray-500 sticky left-0 bg-gray-950 group-hover:bg-gray-800/50">{startIndex + rowIndex + 1}</td>
+                <td className="px-4 py-2 font-mono text-right text-gray-500 sticky left-0 bg-gray-950 group-hover:bg-gray-800 z-10 group-hover:z-20">{startIndex + rowIndex + 1}</td>
                 {headers.map((header) => {
                   const cellValue = row[header];
                   const conditionalClass = getConditionalClassName(cellValue, header, conditionalFormats);
