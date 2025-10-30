@@ -62,7 +62,6 @@ export interface PreviewDiff {
   rowsModified: number;
 }
 
-// FIX: Export PreviewResult interface for use in dataProcessor.
 export interface PreviewResult {
   diff: PreviewDiff;
   sample: Record<string, any>[];
